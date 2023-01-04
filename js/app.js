@@ -106,6 +106,15 @@ class UI {
         //Leer cotenido de la base de datos
         const objectStore = DB.transaction('citas').objectStore('citas') 
 
+        const fntextoHeading = this.textoHeading
+
+        const total = objectStore.count()
+        total.onsuccess = function(){
+            console.log(total.result)
+            fntextoHeading(total.result)
+        }
+
+       
         objectStore.openCursor().onsuccess= function(e){
             const cursor = e.target.result
 
@@ -150,13 +159,14 @@ class UI {
             btnEliminar.classList.add('btn','btn-danger','mr2')
             btnEliminar.innerHTML = 'Eliminar   '
 
-            btnEliminar.onclick= () => elminarCita(id)
+            btnEliminar.onclick= () => eliminarCita(id)
 
             //Añade boton de editar
             const btnEditar =   document.createElement('button')
             btnEditar.classList.add('btn','btn-info')
             btnEditar.innerHTML = 'Editar'
-            btnEditar.onclick = () => cargarEdicion(cita)
+            const cita = cursor.value
+            btnEditar.onclick = () => cargarEdicion(cita   )
             //Agregar parrafos a divcita
             divCita.appendChild(mascotaParrafo)
             divCita.appendChild(propietarioParrafo)
@@ -168,12 +178,15 @@ class UI {
             divCita.appendChild(btnEditar)
             //agregar citas html
             contenedorCitas.appendChild(divCita)
+
+            cursor.continue()
             }
         }
    }
 
-   textoHeading(citas) {
-        if(citas.length > 0 ) {
+   textoHeading(resultado) {
+    
+        if(resultado> 0 ) {
             heading.textContent = 'Administra tus Citas '
         } else {
             heading.textContent = 'No hay Citas, comienza creando una'
@@ -210,11 +223,28 @@ function nuevaCita(e) {
         // Estamos editando
         administrarCitas.editarCita( {...citaObj} );
 
-        ui.imprimirAlerta('Guardado Correctamente');
+        //Editar en IndexedDB
 
-        formulario.querySelector('button[type="submit"]').textContent = 'Crear Cita';
+        const transaccion = DB.transaction(['citas'],'readwrite')
 
-        editando = false;
+        const objectStore = transaccion.objectStore('citas')
+
+        objectStore.put(citaObj)
+
+        transaccion.oncomplete = ()=>{
+            ui.imprimirAlerta('Guardado Correctamente');
+
+            formulario.querySelector('button[type="submit"]').textContent = 'Crear Cita';
+    
+            editando = false;
+        }
+
+        transaccion.onerror = () =>{
+            console.log('hubo un error')
+        }
+
+
+       
 
     } else {
         // Nuevo Registrando
@@ -265,9 +295,21 @@ function reiniciarObjeto() {
 
 
 function eliminarCita(id) {
-    administrarCitas.eliminarCita(id);
+    const transaccion = DB.transaction(['citas'],'readwrite')
+    const objectStore = transaccion.objectStore('citas')
 
-    ui.imprimirCitas()
+    objectStore.delete(id)
+
+    transaccion.oncomplete = ()=>{
+        console.log(`Cita ${id} eliminada...`)
+        ui.imprimirCitas()
+    }
+
+    transaccion.onerror = () =>{
+        console.log('hubo un error')
+    }
+
+    
 }
 
 function cargarEdicion(cita) {
